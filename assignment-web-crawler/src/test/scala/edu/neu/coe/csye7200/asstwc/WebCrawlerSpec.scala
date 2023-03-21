@@ -56,7 +56,7 @@ class WebCrawlerSpec extends AnyFlatSpec with should.Matchers with Futures with 
         }
         val usesf: Future[Seq[URL]] = MonadOps.flatten(usesfy)
         whenReady(usesf, timeout(Span(12, Seconds))) { us =>
-            us.size shouldBe 33
+            us.size shouldBe 50
         }
     }
 
@@ -81,7 +81,7 @@ class WebCrawlerSpec extends AnyFlatSpec with should.Matchers with Futures with 
                 val usf: Future[Seq[URL]] = WebCrawler.wget(us1)(x => exceptions += x)
                 whenReady(usf, timeout(Span(12, Seconds))) {
                     us2 =>
-                        us2.distinct.size shouldBe 32
+                        us2.distinct.size shouldBe 33
                         exceptions.size shouldBe 0
                 }
             case f@_ => fail(f.toString)

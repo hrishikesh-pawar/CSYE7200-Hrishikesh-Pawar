@@ -1,6 +1,7 @@
 package edu.neu.coe.csye7200.asstwc
 
 import edu.neu.coe.csye7200.asstwc.WebCrawler.{canParse, wget}
+
 import java.net.{MalformedURLException, URL}
 import scala.collection.immutable.Queue
 import scala.concurrent._
@@ -13,19 +14,19 @@ import scala.util.matching.Regex
 import scala.xml.Node
 
 /**
- * Class to perform a web crawl.
- *
- * @param max the maximum number of recursive calls of the inner function in crawl.
- *            @param parallelism This is the number of elements we take from the queue each time in order to parallelize them.
- */
+  * Class to perform a web crawl.
+  *
+  * @param max the maximum number of recursive calls of the inner function in crawl.
+  *            @param parallelism This is the number of elements we take from the queue each time in order to parallelize them.
+  */
 case class WebCrawler(max: Int, parallelism: Int = 8) {
 
     /**
-     * Method to get all the URLs that can be crawled from any of the given URLs.
-     *
-     * @param us a list of URLs.
-     * @return a Future of Seq[URL].
-     */
+      * Method to get all the URLs that can be crawled from any of the given URLs.
+      *
+      * @param us a list of URLs.
+      * @return a Future of Seq[URL].
+      */
     def crawl(us: Seq[URL])(implicit ec: ExecutionContext): Future[Seq[URL]] = {
         println(s"crawl: starting with $us")
 
@@ -59,22 +60,22 @@ case class WebCrawler(max: Int, parallelism: Int = 8) {
 }
 
 /**
- * Web Crawler App.
- *
- * @author scalaprof
- */
+  * Web Crawler App.
+  *
+  * @author scalaprof
+  */
 object WebCrawler extends App {
 
     /**
-     * The "main" Web Crawler program.
-     */
+      * The "main" Web Crawler program.
+      */
     crawlWeb(args toList)
 
     /**
-     * Main web-crawler method.
-     *
-     * @param ws the program arguments.
-     */
+      * Main web-crawler method.
+      *
+      * @param ws the program arguments.
+      */
     def crawlWeb(ws: Seq[String]): Unit = {
         MonadOps.sequence(ws map getURL) match {
             case Success(us) =>
@@ -87,11 +88,11 @@ object WebCrawler extends App {
     }
 
     /**
-     * Method to read the content of the given URL and return the result as a Future[String].
-     *
-     * @param u a URL.
-     * @return a String wrapped in Future.
-     */
+      * Method to read the content of the given URL and return the result as a Future[String].
+      *
+      * @param u a URL.
+      * @return a String wrapped in Future.
+      */
     def getURLContent(u: URL)(implicit ec: ExecutionContext): Future[String] =
         for {
             s <- MonadOps.asFuture(SourceFromURL(u))
@@ -99,13 +100,13 @@ object WebCrawler extends App {
         } yield w
 
     /**
-     * Method to validate a URL as using either HTTPS or HTTP protocol.
-     *
-     * CONSIDER: lift this from a URL => URL function.
-     *
-     * @param uy a Try[URL].
-     * @return a Try[URL] which is a Success only if protocol is valid.
-     */
+      * Method to validate a URL as using either HTTPS or HTTP protocol.
+      *
+      * CONSIDER: lift this from a URL => URL function.
+      *
+      * @param uy a Try[URL].
+      * @return a Try[URL] which is a Success only if protocol is valid.
+      */
     def validateURL(uy: Try[URL]): Try[URL] = uy.transform(u => u.getProtocol match {
         case "https" | "http" => Success(u)
         case p => Failure(WebCrawlerProtocolException(p))
@@ -113,11 +114,11 @@ object WebCrawler extends App {
         x => Failure(x))
 
     /**
-     * Method to try to predict if a URL can be read as an HTML document.
-     *
-     * @param u a URL.
-     * @return true if the extension (or lack thereof) is appropriate.
-     */
+      * Method to try to predict if a URL can be read as an HTML document.
+      *
+      * @param u a URL.
+      * @return true if the extension (or lack thereof) is appropriate.
+      */
     def canParse(u: URL): Boolean = {
         val fileNameExtension: Regex = """^([\/-_\w~]*\/)?([-_\w]*)?(\.(\w*))?$""".r
         u.getPath match {
@@ -131,15 +132,23 @@ object WebCrawler extends App {
     }
 
     /**
-     * Method to get a list of URLs referenced by the given URL.
-     *
-     * @param url a URL.
-     * @return a Future of Seq[URL] which corresponds to the various A links in the HTML.
-     */
+      * Method to get a list of URLs referenced by the given URL.
+      *
+      * @param url a URL.
+      * @return a Future of Seq[URL] which corresponds to the various A links in the HTML.
+      */
     def wget(url: URL)(implicit ec: ExecutionContext): Future[Seq[URL]] = {
         // Hint: write as a for-comprehension, using the method createURL(Option[URL], String) to get the appropriate URL for relative links
         // 16 points.
-        def getURLs(ns: Node): Seq[Try[URL]] = ??? // TO BE IMPLEMENTED
+
+    def getURLs(ns: Node): Seq[Try[URL]] = {
+        //(ns \\ "a").flatMap(_ \ "@href").map(href => validateURL(createURL(Some(url), href.toString)))
+
+        for {
+            a <- ns \\ "a";
+            x <- a \ "@href"
+        } yield validateURL(createURL(Some(url), x.toString))
+    }
 
         def getLinks(g: String): Try[Seq[URL]] = {
             val ny: Try[Node] = HTMLParser.parse(g) recoverWith { case f => Failure(new RuntimeException(s"parse problem with URL $url: $f")) }
@@ -147,16 +156,19 @@ object WebCrawler extends App {
         }
         // Hint: write as a for-comprehension, using getURLContent (above) and getLinks above. You will also need MonadOps.asFuture
         // 9 points.
-        ??? // TO BE IMPLEMENTED
+        for (
+            sf <- getURLContent(url);
+            links <- MonadOps.asFuture(getLinks(sf))
+        ) yield links // TO BE IMPLEMENTED
     }
 
     /**
-     * For a given list of URLs, get a (flattened) sequence of URLs by invoking wget(URL).
-     *
-     * @param us a list of URLs.
-     * @param f a function to log an exception (which will be ignored, provided that it is non-fatal).
-     * @return a Future of Seq[URL].
-     */
+      * For a given list of URLs, get a (flattened) sequence of URLs by invoking wget(URL).
+      *
+      * @param us a list of URLs.
+      * @param f a function to log an exception (which will be ignored, provided that it is non-fatal).
+      * @return a Future of Seq[URL].
+      */
     def wget(us: Seq[URL])(f: Throwable => Unit)(implicit ec: ExecutionContext): Future[Seq[URL]] = {
         // CONSIDER using flatten of Seq Future Seq
         val usfs: Seq[Future[Seq[URL]]] = for (u <- us) yield wget(u)
@@ -170,20 +182,20 @@ object WebCrawler extends App {
         MonadOps.flatten(usyf)
     }
 
-  private def sourceToString(source: BufferedSource, errorMsg: String): Try[String] =
-    try Success(source mkString) catch {
-      case NonFatal(e) => Failure(WebCrawlerURLException(errorMsg, e))
-    }
+    private def sourceToString(source: BufferedSource, errorMsg: String): Try[String] =
+        try Success(source mkString) catch {
+            case NonFatal(e) => Failure(WebCrawlerURLException(errorMsg, e))
+        }
 
-  private def getURL(resource: String): Try[URL] = createURL(None, resource)
+    private def getURL(resource: String): Try[URL] = createURL(None, resource)
 
-  private def createURL(context: Option[URL], resource: String): Try[URL] =
-    try Success(new URL(context.orNull, resource)) catch {
-      case e: MalformedURLException => Failure(WebCrawlerURLException(context.map(_.toString).getOrElse("") + s"$resource", e))
-      case NonFatal(e) => Failure(WebCrawlerException(context.map(_.toString).getOrElse("") + s"$resource", e))
-    }
+    private def createURL(context: Option[URL], resource: String): Try[URL] =
+        try Success(new URL(context.orNull, resource)) catch {
+            case e: MalformedURLException => Failure(WebCrawlerURLException(context.map(_.toString).getOrElse("") + s"$resource", e))
+            case NonFatal(e) => Failure(WebCrawlerException(context.map(_.toString).getOrElse("") + s"$resource", e))
+        }
 
-  private def SourceFromURL(resource: URL): Try[BufferedSource] = Try(Source.fromURL(resource))
+    private def SourceFromURL(resource: URL): Try[BufferedSource] = Try(Source.fromURL(resource))
 }
 
 case class WebCrawlerURLException(url: String, cause: Throwable) extends Exception(s"Web Crawler could not decode URL: $url", cause)
@@ -193,17 +205,17 @@ case class WebCrawlerProtocolException(url: String) extends Exception(s"Web Craw
 case class WebCrawlerException(msg: String, cause: Throwable) extends Exception(msg, cause)
 
 object WebCrawlerException {
-  def apply(msg: String): WebCrawlerException = apply(msg, null)
+    def apply(msg: String): WebCrawlerException = apply(msg, null)
 }
 
 case class Unstring(n: Int) extends CharSequence {
-  def +(s: String): String = s.substring(n)
+    def +(s: String): String = s.substring(n)
 
-  def length(): Int = -n
+    def length(): Int = -n
 
-  def charAt(index: Int): Char = throw UnstringException(s"charAt: $index")
+    def charAt(index: Int): Char = throw UnstringException(s"charAt: $index")
 
-  def subSequence(start: Int, end: Int): CharSequence = throw UnstringException(s"subSequence: $start, $end")
+    def subSequence(start: Int, end: Int): CharSequence = throw UnstringException(s"subSequence: $start, $end")
 }
 
 case class UnstringException(str: String) extends Exception(str)
